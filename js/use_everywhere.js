@@ -267,29 +267,13 @@ app.registerExtension({
     init() {
         graphAnalyser = GraphAnalyser.instance();
         linkRenderController = LinkRenderController.instance(graphAnalyser);
-        
+
         var prompt_being_queued = false;
-
-        function setPromptBeingQueued (value) {
-            if (window) {
-                window.everywhere_prompt_being_queued = value;
-            } else {
-                prompt_being_queued = value;
-            }
-        }
-
-        function getPromptBeingQueued () {
-            if (window) {
-                return window.everywhere_prompt_being_queued;
-            } else {
-                return prompt_being_queued;
-            }
-        }
 
         const original_graphToPrompt = app.graphToPrompt;
         app.graphToPrompt = async function () {
-            if (getPromptBeingQueued()) {
-                return await graphAnalyser.graph_to_prompt(graphAnalyser.analyse_graph(true, true));
+            if (prompt_being_queued) {
+                return await graphAnalyser.graph_to_prompt( graphAnalyser.analyse_graph(true, true) );
             } else {
                 return await original_graphToPrompt.apply(app, arguments);
             }
@@ -297,12 +281,16 @@ app.registerExtension({
 
         const original_queuePrompt = app.queuePrompt;
         app.queuePrompt = async function () {
-            setPromptBeingQueued(true);
+            prompt_being_queued = true;
             try {
                 return await original_queuePrompt.apply(app, arguments);
             } finally {
-                setPromptBeingQueued(false)
+                prompt_being_queued = false;
             }
+        }
+
+        app.ue_modified_prompt = async () => {
+            return await graphAnalyser.graph_to_prompt( graphAnalyser.analyse_graph(true, true) );
         }
         
         app.canvas.__node_over = app.canvas.node_over;
